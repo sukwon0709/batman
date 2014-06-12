@@ -1,0 +1,372 @@
+package edu.vanderbilt.batman.testing;
+
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+
+import org.jdom.Document;
+import org.jdom.Element;
+import org.jdom.output.Format;
+import org.jdom.output.XMLOutputter;
+
+import edu.vanderbilt.batman.inference.SQLOperationAnalyzer;
+import edu.vanderbilt.batman.inference.WebResponseAnalyzer;
+import edu.vanderbilt.batman.model.PropagationPathConstraint;
+import edu.vanderbilt.batman.model.SQLSample;
+import edu.vanderbilt.batman.model.UserIdentity;
+import edu.vanderbilt.batman.model.UserOwnershipConstraint;
+import edu.vanderbilt.batman.model.RoleAuthPolicy;
+import edu.vanderbilt.batman.model.SQLOperation;
+import edu.vanderbilt.batman.model.TestVector;
+import edu.vanderbilt.batman.model.UserRole;
+import edu.vanderbilt.batman.model.UserSpecificVariableConstraint;
+import edu.vanderbilt.batman.model.Variable;
+import edu.vanderbilt.batman.model.WebRequest;
+import edu.vanderbilt.batman.model.WebResponse;
+import edu.vanderbilt.batman.util.RandomValueGenerator;
+import edu.vanderbilt.batman.util.UserManager;
+
+
+public class TestGenerator {
+	
+	public static List<TestVector> generateTestCases(Set<RoleAuthPolicy> policies) {
+		
+		List<TestVector> testCases = new ArrayList<TestVector>();		
+		
+		// get ordered list of roles:
+		List<UserRole> roleList = new ArrayList<UserRole>();
+		HashMap<UserRole, RoleAuthPolicy> rolePolicyMap = new HashMap<UserRole, RoleAuthPolicy>();
+		for (RoleAuthPolicy policy: policies) {
+			UserRole role = policy.getRole();
+			rolePolicyMap.put(role, policy);
+			roleList.add(role);
+		}
+		Collections.sort(roleList);
+		
+		for (int i = 0; i < roleList.size(); i++ ) {
+			// generate test case for each role:
+			UserRole testRole = roleList.get(i);
+			System.out.println("Generating test cases for role: " + testRole.getRole());
+			
+			// role-based:
+			for (int j = i+1; j < roleList.size(); j ++) {
+				UserRole refRole = roleList.get(j);
+				testCases.addAll(genSQLOperationDiffTestCases(rolePolicyMap.get(testRole), rolePolicyMap.get(refRole), SQLOperationAnalyzer.getMarkedSampleByRole(refRole)));
+			}
+			
+			// user-based:
+			testCases.addAll(genSQLOperationConstTestCases(rolePolicyMap.get(testRole), SQLOperationAnalyzer.getMarkedSampleByRole(testRole)));
+		}
+		
+		return testCases;
+	}
+	
+	
+	private static List<TestVector> genSQLOperationDiffTestCases(RoleAuthPolicy testRolePolicy, RoleAuthPolicy refRolePolicy, List<SQLSample> samples) {
+		
+		UserRole testRole = testRolePolicy.getRole();
+		UserRole refRole = refRolePolicy.getRole();
+		List<TestVector> testVectors = new ArrayList<TestVector>();
+		
+		Set<SQLOperation> diffSet = genSQLOperationDiffSet(testRolePolicy.getPrivileges(), refRolePolicy.getPrivileges());
+		
+		for (SQLOperation operation: diffSet) {
+			List<SQLSample> testSamples = SQLOperationAnalyzer.retrieveSampleByOperation(samples, operation);
+			
+			List<SQLSample> seedSamples = selectSeedSampleByRequestKey(testSamples, null);
+			for (SQLSample seed: seedSamples) {
+				TestVector vector = new TestVector(TestVector.ROLE_TEST);
+				vector.setTestSQLOperation(operation);
+				vector.setTestRole(testRole);      // select a user at runtime
+				vector.setRefRole(refRole);
+				vector.setTestWebRequest(seed.getWebRequest());    // keep web request unchanged.
+				vector.setTestUser(UserManager.selectUser(testRole));
+				testVectors.add(vector);
+			}
+		}
+		return testVectors;
+	}
+	
+	
+	private static Set<SQLOperation> genSQLOperationDiffSet(Set<SQLOperation> testSet, Set<SQLOperation> refSet) {
+		Set<SQLOperation> set = new HashSet<SQLOperation>();
+		for (SQLOperation op: refSet) {
+			// tweak privilege operation.
+			if (!op.getQuerySkeleton().startsWith("SELECT")) {
+				set.add(op);
+			} else {
+				boolean found = false;
+				for (SQLOperation testOp: testSet) {
+					if (op.getQuerySkeleton().equals(testOp.getQuerySkeleton())) {
+						if (testOp.getAttributeSources().containsAll(op.getAttributeSources())) {
+							found = true;
+							break;
+						}
+					}
+				}
+				if (!found) set.add(op);
+			}
+			/*
+			if (!testSet.contains(op)) {
+				set.add(op);
+			}*/
+		}
+		return set;
+	}
+	
+	
+	private static List<SQLSample> selectSeedSampleByRequestKey(List<SQLSample> samples, String requestKey) {
+		
+		List<SQLSample> seeds = new ArrayList<SQLSample>();
+		
+		// group samples by request key.
+		HashMap<String, List<SQLSample>> sortedSamples = new HashMap<String, List<SQLSample>>();
+		for (SQLSample sample: samples) {
+			String key = sample.getWebRequest().getRequestKey();
+			
+			if (!sortedSamples.containsKey(key)) {
+				sortedSamples.put(key, new ArrayList<SQLSample>());
+			}
+			sortedSamples.get(key).add(sample);
+		}
+		
+		if (requestKey == null) {
+			// select a seed randomly from each request key.
+			for (String key: sortedSamples.keySet()) {
+				int r = new Random().nextInt(sortedSamples.get(key).size());
+				SQLSample seed = sortedSamples.get(key).get(r);
+				seeds.add(seed);
+			}
+		} else {
+			if (sortedSamples.containsKey(requestKey)) {
+				int r = new Random().nextInt(sortedSamples.get(requestKey).size());
+				SQLSample seed = sortedSamples.get(requestKey).get(r);
+				seeds.add(seed);
+			}
+		}
+		return seeds;
+	}
+	
+	
+	private static List<TestVector> genSQLOperationConstTestCases(RoleAuthPolicy policy, List<SQLSample> samples) {
+		
+		List<TestVector> testVectors = new ArrayList<TestVector>();
+		
+		for (SQLOperation operation: policy.getPrivileges()) {
+			List<SQLSample> sqlSamples = SQLOperationAnalyzer.retrieveSampleByOperation(samples, operation);
+			
+			testVectors.addAll(violateSpecificValueConstraints(operation, sqlSamples));
+			testVectors.addAll(violateUserOwnershipConstraints(operation, sqlSamples));
+		}
+		
+		return testVectors;
+	}
+	
+	
+	private static List<TestVector> violateSpecificValueConstraints(SQLOperation operation, List<SQLSample> samples) {
+		
+		List<TestVector> testVectors = new ArrayList<TestVector>();
+		Set<PropagationPathConstraint> parameterPropPaths = operation.getParameterPropPaths();
+		
+		for (UserSpecificVariableConstraint constraint: operation.getSpecificValueConsts()) {
+			Variable queryPara = constraint.getVariable();
+			
+			boolean found = false;
+			
+			for (PropagationPathConstraint parameterPropPath: parameterPropPaths) {
+				
+				if (parameterPropPath.getDestVariable().equals(queryPara)) {
+					found = true;
+					String requestKey = parameterPropPath.getSrcVariable().getContext();
+					List<SQLSample> seedSamples = selectSeedSampleByRequestKey(samples, requestKey);
+					for (SQLSample seedSample: seedSamples) {
+						TestVector vector = new TestVector(TestVector.SPECIFIC_CONST_TEST);
+						vector.setTestSQLOperation(operation);
+						UserIdentity user = UserManager.fetchUser(seedSample.getUser());
+						if (user == null) {
+							System.out.println("Fail to identity the correct user! " + seedSample.getUser().getUserId());
+							continue;
+						}
+						vector.setTestUser(user);  // designate a user. only contain userId
+						vector.setParameterPropPath(parameterPropPath);
+						vector.setSpecificValueConst(constraint);
+						vector.setTestWebRequest(seedSample.getWebRequest());
+						
+						List<String> toViolate = new ArrayList<String>();   // TODO: change to online manipulation.
+						String queryParaValue = seedSample.getSqlQuery().getValues().get(queryPara.getName());
+						toViolate.add(queryParaValue);
+						List<String> toSelect = new ArrayList<String>();
+						toSelect.addAll(queryPara.getValues());
+						manipulateWebRequestParameter(vector, toViolate, toSelect);
+						if (vector != null) {
+							testVectors.add(vector);
+						}
+					}
+				}
+			}
+			if (!found) {
+				System.out.println("Unable to find matching request parameter prop path! SpecificValueVar: " + queryPara.toString());
+			}
+		}
+		return testVectors;
+	}
+	
+	
+	private static void manipulateWebRequestParameter(TestVector vector, List<String> toViolate, List<String> toSelect) {
+		
+		WebRequest request = vector.getTestWebRequest();
+		PropagationPathConstraint propPath = vector.getParameterPropPath();
+		if (propPath != null) {
+			String name = propPath.getSrcVariable().getName();
+			String[] st = name.split("-");
+			String paraType = st[0];
+			String paraName = st[1];
+			
+			String newValue = generateParameterNewValue(toViolate, toSelect);
+			if (newValue != null) {
+				// update the parameter.
+				if (paraType.equals("GET")) {
+					request.getGetParameters().put(paraName, newValue);
+				} else if (paraType.equals("POST")) {
+					request.getPostParameters().put(paraName, newValue);
+				}
+			} else {
+				System.err.println("Fail to generate test value!");
+				vector = null;
+			}
+		} else {
+			System.err.println("Parameter Propagate Path is null!");
+			vector = null;
+		}
+	}
+	
+	
+	private static String generateParameterNewValue(List<String> toViolate, List<String> toSelect)  {
+		
+		// NOTE: should be aware of the database state change, especially DELETION.
+		
+		if (toSelect.size() == 0) {
+			// random generate a value.
+			Variable var = new Variable("temp", "temp");
+			var.getValues().addAll(toViolate);
+			if (var.getValueType() == Variable.NUMBER) {
+				String num = "";
+				do {
+					num = RandomValueGenerator.generateRandomNumber(1);
+				} while (toViolate.contains(num));
+				return num;
+			} else if (var.getValueType() == Variable.PHONE) {
+				return RandomValueGenerator.generateRandomPhoneNum();
+			} else if (var.getValueType() == Variable.EMAIL) {
+				return RandomValueGenerator.generateRandomEmail();
+			} else {
+				int len = new Random().nextInt(9) + 1;
+				return RandomValueGenerator.generateRandomString(len);
+			}
+		} else {			
+			for (int i = 0; i < toSelect.size(); i++) {
+				String value = toSelect.get(i);
+				if (!toViolate.contains(value)) {
+					return value;
+				}
+			}
+		}
+		return null;
+	}
+	
+	
+	private static List<TestVector> violateUserOwnershipConstraints(SQLOperation operation, List<SQLSample> samples) {
+		
+		List<TestVector> testVectors = new ArrayList<TestVector>();
+		
+		for (UserOwnershipConstraint constraint: operation.getOwnershipConsts()) {
+			
+			Variable requestPara = constraint.getMemberVariable();
+			String requestKey = requestPara.getContext();
+			List<SQLSample> seedSamples = selectSeedSampleByRequestKey(samples, requestKey);
+			
+			for (SQLSample seedSample: seedSamples) {
+				
+				if (seedSample.getSamplesInPreviousInteractions().size() == 0) {
+					System.err.println("Samples in previous interaction are null!");
+					continue;
+				}
+				
+				WebRequest lastWebRequest = seedSample.getSamplesInPreviousInteractions().get(0).getWebRequest();  // the first interaction among three.
+				
+				TestVector vector = new TestVector(TestVector.OWNERSHIP_CONST_TEST);
+				vector.setTestSQLOperation(operation);
+				UserIdentity user = UserManager.fetchUser(seedSample.getUser());
+				if (user == null) {
+					System.out.println("Fail to identity the correct user! " + seedSample.getUser().getUserId());
+					continue;
+				}
+				vector.setTestUser(user);  // designate a user. only contain userId
+				vector.setOwnershipConst(constraint);
+				vector.setLastWebRequest(lastWebRequest);
+				vector.setTestWebRequest(seedSample.getWebRequest());  //TODO: another way is to violate last web request (user specific const).
+				testVectors.add(vector);
+			}
+		}
+		return testVectors;
+	}
+	
+	
+	
+	// To be called by TestingEngine during runtime.
+	public static TestVector violateMembershipConstraint(TestVector vector, WebResponse response) {
+		
+		if (vector.getTestType() != TestVector.OWNERSHIP_CONST_TEST || vector.getOwnershipConst() == null) {
+			System.err.println("Invalid test vector!!");
+			return null;
+		}
+		
+		UserOwnershipConstraint ownershipConst = vector.getOwnershipConst();
+		//System.out.println(ownershipConst.toString());
+		//System.out.println(ownershipConst.getOwnerVariable());
+		//System.out.println("context: " + ownershipConst.getOwnerVariable().getContext() + " name: " + ownershipConst.getOwnerVariable().getName());
+		String xpath = ownershipConst.getOwnerVariable().getName();
+		Set<Variable> webResponseVars = WebResponseAnalyzer.getWebResponseVariablesByXpath(response, xpath);
+		
+		if (webResponseVars.size() == 0) {
+			System.err.println("Fail to identify web response variable at: " + xpath);
+			return null;
+		}
+		List<String> toViolate = new ArrayList<String>();
+		List<String> toSelect = new ArrayList<String>();
+		for (Variable var: webResponseVars){
+			if (var.getValues().size() != 1) continue;
+			toViolate.add(var.getValues().get(0));
+		}
+		manipulateWebRequestParameter(vector, toViolate, toSelect);  // reference here!
+		return vector;
+	}
+	
+	
+	
+	public static void output(String file, List<TestVector> testCases) {
+		int[] vectorType = new int[3];
+		try {
+			Element root = new Element("TestProfile");
+			for (TestVector vector: testCases) {
+				vectorType[vector.getTestType()] ++;
+				//System.out.println(vector.getTestSQLOperation().toString());
+				//System.out.println(vector.getTestWebRequest().getRequestKey());
+				root.addContent(vector.genXMLElement());
+			}
+			Document doc = new Document(root);
+			XMLOutputter serializer = new XMLOutputter(Format.getPrettyFormat());
+		    serializer.output(doc, new FileOutputStream(file));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		System.out.println("Role test vectors: " + vectorType[TestVector.ROLE_TEST]);
+		System.out.println("SpecificValueConst test vectors: " + vectorType[TestVector.SPECIFIC_CONST_TEST]);
+		System.out.println("OwnershipConst test vectors: " + vectorType[TestVector.OWNERSHIP_CONST_TEST]);
+	}
+}
