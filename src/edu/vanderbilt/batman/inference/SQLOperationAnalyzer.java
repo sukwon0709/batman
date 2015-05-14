@@ -86,8 +86,13 @@ public class SQLOperationAnalyzer {
 		}
 		return operations;
 	}
-	
-	
+
+    /**
+     * Creates a HashMap of Interaction to a list of SQL Samples with lookaheads.
+     *
+     * @param sessions
+     * @return
+     */
 	private static HashMap<InteractionSignature, List<SQLSample>> groupSampleByInteractionSignature(List<WebSession> sessions) {
 		int lookAhead = 2;  // change to look ahead 2 interactions.
 		HashMap<InteractionSignature, List<SQLSample>> sqlSamples = new HashMap<InteractionSignature, List<SQLSample>>();
@@ -99,7 +104,7 @@ public class SQLOperationAnalyzer {
 				
 				String requestKey = interaction.getRequest().getRequestKey();
 				List<SQLSample> sqlSamplesInCurInteraction = new ArrayList<SQLSample>();
-				
+
 				for (SQLQueryResponsePair pair: interaction.getSqlQueryResponsePairs()) {
 					String querySkeleton = pair.getSqlQuery().getSkeleton();
 					InteractionSignature signature = new InteractionSignature(requestKey, querySkeleton);

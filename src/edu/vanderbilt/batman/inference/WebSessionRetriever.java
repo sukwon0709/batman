@@ -9,7 +9,13 @@ import edu.vanderbilt.batman.model.UserRole;
 import edu.vanderbilt.batman.model.WebSession;
 
 public class WebSessionRetriever {
-	
+
+    /**
+     * Sort WebSessions by Roles.
+     *
+     * @param sessions
+     * @return Hashmap of UserRole, List<WebSession> pairs.
+     */
 	public static HashMap<UserRole, List<WebSession>> retrieveByRole(List<WebSession> sessions) {
 		
 		HashMap<UserRole, List<WebSession>> population = new HashMap<UserRole, List<WebSession>>();

@@ -16,7 +16,18 @@ public class SQLSample {
 	@Getter @Setter private List<SQLSample> samplesInPreviousInteractions;
 	
 	@Getter @Setter private SQLOperation sqlOperation = null;   // attribute
-	
+
+    /**
+     * SQL Sample just as described in the paper.
+     * Quote: "Each SQL Sample is retrieved from the traces by including a pair of SQL query
+     * and response, as well as the web request and response in the interaction.
+     *
+     * @param u
+     * @param request
+     * @param response
+     * @param query
+     * @param sqlResp
+     */
 	public SQLSample(UserIdentity u, WebRequest request, WebResponse response, SQLQuery query, SQLResponse sqlResp) {
 		user = u;
 		webRequest = request;

@@ -11,7 +11,13 @@ public class InteractionSignature {
 	
 	@Getter private String webRequestKey;
 	@Getter private String sqlQuerySkeleton;
-	
+
+    /**
+     * Consists of a webRequest key and a SQL skeleton.
+     *
+     * @param key
+     * @param skeleton
+     */
 	public InteractionSignature(String key, String skeleton) {
 		webRequestKey = key;
 		sqlQuerySkeleton = skeleton;

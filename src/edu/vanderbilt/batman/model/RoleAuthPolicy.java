@@ -7,11 +7,17 @@ import org.jdom.Element;
 
 import lombok.Getter;
 
+
 public class RoleAuthPolicy {
 	
 	@Getter private final UserRole role;
 	@Getter private final Set<SQLOperation> privileges;    // a role is associated with a set of privileges.
-	
+
+    /**
+     * RoleAuthPolicy associates a set of SQLOperations to a Role.
+     *
+     * @param r
+     */
 	public RoleAuthPolicy(UserRole r) {
 		role = new UserRole(r);
 		privileges = new HashSet<SQLOperation>();

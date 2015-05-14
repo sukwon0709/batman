@@ -19,7 +19,12 @@ public class WebInteraction {
 	@Getter private List<WebInteraction> previousInteractions = new ArrayList<WebInteraction>();    // historical interactions.
 	
 	@Getter private ArrayList<SQLQueryResponsePair> sqlQueryResponsePairs = new ArrayList<SQLQueryResponsePair>(); //list of SQLQuery/Response pair.
-	
+
+    /**
+     * Interaction as described in the paper.
+     *
+     * @param r
+     */
 	public WebInteraction(WebRequest r) {
 		request = new WebRequest(r);
 	}
