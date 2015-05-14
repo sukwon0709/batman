@@ -24,8 +24,8 @@ public class Portal extends HttpServlet {
 	public static int MODE_TESTING = 1;
 	public static int MODE_DEBUGING = 2;
 
-	//public static final int mode = MODE_LOGGING;
-	public static final int mode = MODE_TESTING;
+	public static final int mode = MODE_LOGGING;
+	//public static final int mode = MODE_TESTING;
 	//public static final int mode = MODE_DEBUGING;
 	
 	// Configurations::

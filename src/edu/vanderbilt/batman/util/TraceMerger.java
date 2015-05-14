@@ -72,6 +72,7 @@ public class TraceMerger {
 				String line = indexReader.readLine();
 				String[] strs = line.split("[\\[\\]]");
 				if (strs.length != 4) continue;
+				// index file is in format [type][index]
 				String type = strs[1];
 				String index = strs[3];
 				
@@ -90,6 +91,8 @@ public class TraceMerger {
 					//if (session_count > 6) break;   // we only analyze 6 sessions for bloggit right now.
 
 				} else if (type.equals("HTTP_REQUEST")) {
+                    // from looking at HTTP_REQUEST and HTTP_RESPONSE,
+                    // index seems to be in format [log_id-file_id]
 					
 					// parse log id.
 					String log_id = index.substring(0, index.indexOf("-"));
@@ -107,7 +110,10 @@ public class TraceMerger {
 						sqlReader.close();
 						return sessions;
 					}
-					
+
+                    // from looking at parseWebRequestLog function, id-requestFile seems to contain
+                    // a request trace in the following format.
+                    // [index][method][url][param1][param2]...[paramN]
 					String requestLine = reqReader.readLine();    // read from request file.
 					request = parseWebRequestLog(requestLine, index);
 					
@@ -167,7 +173,10 @@ public class TraceMerger {
 					
 					String queryLog = sqlReader.readLine();
 					//if (queryLog.contains("response")) queryLog = sqlReader.readLine();					
-					try {							
+					try {
+                        // sql log has format [query][index][stmt]
+                        // or [response][index][select][result]
+                        // or [response][index][nselect][status][row#]
 						query = parseSqlQueryMessage(queryLog, index);
 					} catch (Exception e) {
 						query = null;

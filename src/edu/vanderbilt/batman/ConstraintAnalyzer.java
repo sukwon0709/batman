@@ -24,7 +24,7 @@ class ConstraintAnalyzer {
 	
 	public static void main(String args[]) {
 		
-		String working_dir = "/Users/xli/Desktop/trace/Batman/";
+		String working_dir = "/home/soh/trace/Batman/";
 		//String project = "scarf";
 		//String project = "securephoto";
 		//String project = "events";
