@@ -30,7 +30,7 @@ public class Portal extends HttpServlet {
 	
 	// Configurations::
 	// local storage.
-	public static String working_dir = "/Users/xli/Desktop/trace/Batman/";
+	public static String working_dir = "/home/soh/trace/Batman/";
 	//public static String project = "scarf";
 	//public static String project = "securephoto";
 	//public static String project = "events";
