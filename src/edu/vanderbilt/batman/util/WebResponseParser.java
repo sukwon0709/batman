@@ -44,7 +44,13 @@ public class WebResponseParser {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * WebResponse consists of a set of HTML elements and dynamic variables.
+	 *
+	 * @param file
+	 * @return
+	 */
 	public static WebResponse parseHtmlFile(String file) {
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(file));

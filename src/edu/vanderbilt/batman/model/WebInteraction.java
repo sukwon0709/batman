@@ -22,6 +22,7 @@ public class WebInteraction {
 
     /**
      * Interaction as described in the paper.
+	 * Precisely they are one request/response pair + 0 or more SQL query/response pairs.
      *
      * @param r
      */

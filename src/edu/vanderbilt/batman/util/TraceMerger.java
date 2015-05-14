@@ -75,8 +75,9 @@ public class TraceMerger {
 				// index file is in format [type][index]
 				String type = strs[1];
 				String index = strs[3];
-				
+
 				if (type.equals("HTTP_SESSION")) {
+					// index is in format "role userId"
 					UserIdentity user = parseUserInfo(index);
 					//if (user.getRole().getRole() == 0) print = true;  else print = false;
 					if (print) System.out.println("USER: " + user.getUserId());
@@ -93,6 +94,8 @@ public class TraceMerger {
 				} else if (type.equals("HTTP_REQUEST")) {
                     // from looking at HTTP_REQUEST and HTTP_RESPONSE,
                     // index seems to be in format [log_id-file_id]
+					// request file's name in format "/home/soh/trace/Batman/JsForum/log_1/1-requestFile"
+					// html dir in format "/home/soh/trace/Batman/JsForum/log_1/html/"
 					
 					// parse log id.
 					String log_id = index.substring(0, index.indexOf("-"));
@@ -145,6 +148,10 @@ public class TraceMerger {
 					}
 					
 				} else if (type.equals("HTTP_RESPONSE")) {
+					// from looking at HTTP_REQUEST and HTTP_RESPONSE,
+					// index seems to be in format [log_id-file_id]
+					// request file's name in format "/home/soh/trace/Batman/JsForum/log_1/1-requestFile"
+					// html dir in format "/home/soh/trace/Batman/JsForum/log_1/html/"
 					
 					// file id.
 					String file_id = index.substring(index.indexOf("-")+1);
@@ -177,6 +184,9 @@ public class TraceMerger {
                         // sql log has format [query][index][stmt]
                         // or [response][index][select][result]
                         // or [response][index][nselect][status][row#]
+						// remember: index is from index log and SQL query is from sql log,
+						// so this is trying to process right number of SQL query/response pairs
+						// per web interaction.
 						query = parseSqlQueryMessage(queryLog, index);
 					} catch (Exception e) {
 						query = null;
@@ -203,7 +213,13 @@ public class TraceMerger {
 					}
 					
 				} else if (type.equals("SQL_RESPONSE")) {
-					
+					// sql log has format [query][index][stmt]
+					// or [response][index][select][result]
+					// or [response][index][nselect][status][row#]
+					// remember: index is from index log and SQL query is from sql log,
+					// so this is trying to process right number of SQL query/response pairs
+					// per web interaction.
+
 					String responseLog = sqlReader.readLine();
 					SQLResponse response = parseSqlResponseMessage(responseLog, index, query);
 					if (response != null && context != null) {
@@ -238,8 +254,14 @@ public class TraceMerger {
 		
 		return sessions;
 	}
-	
-	
+
+	/**
+	 * Extracts a user identity from index part of the index log.
+	 * Is userId from user table in DB?
+	 *
+	 * @param info
+	 * @return
+	 */
 	private static UserIdentity parseUserInfo(String info) {
 		String[] strs = info.split(" ");      // change to info.split(" "); for crawl trace.
 		int role = Integer.parseInt(strs[0]);
