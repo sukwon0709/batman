@@ -23,6 +23,8 @@
 
 --]]
 
+local http = require("socket.http")
+
 ---
 -- read_query() can rewrite packets
 --
