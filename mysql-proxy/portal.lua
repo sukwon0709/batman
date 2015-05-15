@@ -24,6 +24,40 @@
 --]]
 
 local http = require("socket.http")
+local ltn12 = require("ltn12")
+local tokenizer = require("proxy.tokenizer")
+local sql_index = 1
+local portal_addr = "http://localhost:8080/portal/"
+
+---
+-- Sends HTTP GET request
+--
+-- @param addr HTTP url to send GET request to
+--
+function doGet(addr)
+    http.request{url = addr}
+end
+
+---
+-- Sends GET and POST requests to Portal
+--
+-- @param packet the mysql-packet sent by the client
+--
+function send_query( packet )
+    local get_str = portal_addr .. "?type=SQL_QUERY&index=" .. sql_index
+    doGet(get_str)
+end
+
+---
+-- Sends GET and POST requests to Portal
+--
+-- @param packet the mysql-packet sent by the client
+-- @index index for the SQL response
+--
+function send_response( packet, index )
+    local get_str = portal_addr .. "?type=SQL_RESPONSE&index=" .. index
+    doGet(get_str)
+end
 
 ---
 -- read_query() can rewrite packets
@@ -40,17 +74,23 @@ local http = require("socket.http")
 --
 function read_query( packet )
 	if string.byte(packet) == proxy.COM_QUERY then
-		print("we got a normal query: " .. string.sub(packet, 2))
+        local tokens = tokenizer.tokenize(packet:sub(2))
+        for i = 1, #tokens do
+            local token = tokens[i]
+            local token_name = token["token_name"]
+            if token_name == "TK_SQL_SELECT" or
+                token_name == "TK_SQL_INSERT" or
+                token_name == "TK_SQL_UPDATE" or
+                token_name == "TK_SQL_DELETE" then
 
-		proxy.queries:append(1, packet )
-		-- generate a new COM_QUERY packet
-		--   [ \3SELECT NOW() ]
-		-- and inject it with the id = 2
-        -- { resultset_is_needed = true } is required,
-        -- if you want to have access to the result set in the read_query_result().
-		proxy.queries:append(2, string.char(proxy.COM_QUERY) .. "SELECT NOW()", { resultset_is_needed = true } )
+		        print("we got a normal query: " .. string.sub(packet, 2))
+                send_query(packet)
+		        proxy.queries:append(sql_index, packet, { resultset_is_needed = true } )
+                sql_index = sql_index + 1
 
-		return proxy.PROXY_SEND_QUERY
+		        return proxy.PROXY_SEND_QUERY
+            end
+        end
 	end
 end
 
@@ -70,15 +110,10 @@ end
 function read_query_result(inj)
 	print("injected result-set: id = " .. inj.id)
 
-	-- inj.id = 2 was assigned above in the  proxy.queries:append()
-	-- 
-	-- drop the resultset when we are done to hide it from the client
-	-- (in lua the first index is 1, not 0)
-	if (inj.id == 2) then
-		for row in inj.resultset.rows do
-			print("injected query returned: " .. row[1])
-		end
-
-		return proxy.PROXY_IGNORE_RESULT
-	end
+    send_response(inj.resultset, inj.id)
+    for row in inj.resultset.rows do
+        if row[1] ~= nil then
+            print("injected query returned: " .. row[1])
+        end
+    end
 end
