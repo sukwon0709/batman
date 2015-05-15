@@ -39,6 +39,15 @@ function doGet(addr)
 end
 
 ---
+-- Sends HTTP POST request
+--
+-- @param post_data HTTP POST body
+--
+function doPost(post_data)
+    http.request(portal_addr, post_data)
+end
+
+---
 -- Sends GET and POST requests to Portal
 --
 -- @param packet the mysql-packet sent by the client
@@ -46,17 +55,48 @@ end
 function send_query( packet )
     local get_str = portal_addr .. "?type=SQL_QUERY&index=" .. sql_index
     doGet(get_str)
+
+    local post_type = "type=SQL_QUERY"
+    local post_index = "index=" .. sql_index
+    local post_content = "content=[query][" .. sql_index .. "][" .. packet:sub(2) .. "]\n"
+    local post_str = post_type .. "&" .. post_index .. "&" .. post_content
+    doPost(post_str)
 end
 
 ---
 -- Sends GET and POST requests to Portal
 --
--- @param packet the mysql-packet sent by the client
+-- @param inj
 -- @index index for the SQL response
 --
-function send_response( packet, index )
+function send_response( inj, index )
     local get_str = portal_addr .. "?type=SQL_RESPONSE&index=" .. index
     doGet(get_str)
+
+    local post_type = "type=SQL_RESPONSE"
+    local post_index = "index=" .. index
+    local packet = inj.query
+    local query = packet:sub(2)
+    local res = inj.resultset
+    local tokens = tokenizer.tokenize(query)
+    local token = tokens[1]
+    local resp_type = token.token_name
+    local post_content = ""
+    if resp_type == "TK_SQL_SELECT" then
+        post_content = "content=[response][" .. index .. "][select][" .. query .. "]\n"
+    else
+        local query_status = "STATUS_OK"
+        if res.query_status == proxy.MYSQLD_PACKET_ERR then
+            query_status = "STATUS_ERR"
+        end
+        local row_count = 0
+        for row in res.rows do
+            row_count = row_count + 1
+        end
+        post_content = "content=[response][" .. index .. "][nselect][" .. query_status .. "][" .. tostring(row_count) .. "]\n"
+    end
+    local post_str = post_type .. "&" .. post_index .. "&" .. post_content
+    doPost(post_str)
 end
 
 ---
@@ -110,7 +150,7 @@ end
 function read_query_result(inj)
 	print("injected result-set: id = " .. inj.id)
 
-    send_response(inj.resultset, inj.id)
+    send_response(inj, inj.id)
     for row in inj.resultset.rows do
         if row[1] ~= nil then
             print("injected query returned: " .. row[1])

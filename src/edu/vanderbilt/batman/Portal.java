@@ -123,7 +123,7 @@ public class Portal extends HttpServlet {
 				BufferedWriter bw = new BufferedWriter(new FileWriter(sql_log_file, true));
 				BufferedWriter bw1 = new BufferedWriter(new FileWriter(log_file, true));
 				try {
-					//bw.write(data);
+					bw.write(data);	// soh: I re-enabled it. Hope it doesn't break stuff.
 					// record index.
 					StringBuilder builder = new StringBuilder();
 			    	builder.append("[");
