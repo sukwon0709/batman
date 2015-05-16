@@ -4,6 +4,7 @@
 WebProxy.java is reimplemented in Python using mitmproxy.
 """
 import errno
+import requests
 import os
 import sys
 
@@ -14,6 +15,8 @@ resp_file_id = 1
 log_dir = "."
 html_dir = "{0}/html".format(log_dir)
 req_file = None
+
+portal_addr = "http://localhost:8080/portal"
 
 def start(context, argv):
     """
@@ -36,6 +39,10 @@ def request(context, flow):
     global log_id, req_file_id
     index = "{0}-{1}".format(log_id, req_file_id)
     index_entry = "[HTTP_REQUEST][{0}]".format(index)
+    get_req = "{0}?type=HTTP_REQUEST&index={1}".format(portal_addr, index)
+    r = requests.get(get_req)
+    if r.status_code < 200 or r.status_code >= 300:
+        print "Sending an index to Portal failed."
 
     method = flow.request.method
     url = flow.request.url
@@ -59,6 +66,10 @@ def response(context, flow):
     global log_id, resp_file_id
     index = "{0}-{1}".format(log_id, resp_file_id)
     index_entry = "[HTTP_RESPONSE][{0}]".format(index)
+    get_req = "{0}?type=HTTP_RESPONSE&index={1}".format(portal_addr, index)
+    r = requests.get(get_req)
+    if r.status_code < 200 or r.status_code >= 300:
+        print "Sending an index to Portal failed."
 
     html_file_name = "{0}/{1}.html".format(html_dir, resp_file_id)
     with open(html_file_name, "w") as html_file:
