@@ -3,7 +3,11 @@ package edu.vanderbilt.batman.model;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,7 +25,9 @@ public class SQLResponse {
 	@Getter private List<HashMap<String, String>> tuples;
 	@Getter @Setter private SQLQuery sqlquery;//Yuan add
 	
-	@Getter @Setter private String responseStr = null;
+	@Getter @Setter(AccessLevel.NONE) private String responseStr = null;
+
+	final Pattern ROW_PATTERN = Pattern.compile("##(.+?)##");
 	
 	//Yuan add:
 	public SQLResponse(SQLQuery query){
@@ -40,6 +46,33 @@ public class SQLResponse {
 	
 	public SQLResponse(String result) {
 		responseStr = result;
+	}
+
+	public void setResponseStr(String result) {
+		responseStr = result;
+		if (responseStr.contains("SUCCESS") || responseStr.contains("FAILURE")) {
+			responseStr = responseStr.substring(7);
+		}
+		parseResponseStr();
+	}
+
+	private void parseResponseStr() {
+		final Matcher matcher = ROW_PATTERN.matcher(responseStr);
+		while (matcher.find()) {
+			String rowContent = matcher.group(1);
+			String[] kvPairs = rowContent.split("\\$\\$");
+			for (String kvPair : kvPairs) {
+				String[] splitted = kvPair.split("\\^\\^");
+				String key = splitted[0];
+				String val = splitted[1];
+				if (!values.containsKey(key)) {
+					values.put(key, new ArrayList<String>());
+				}
+				if (!values.get(key).contains(val)) {
+					values.get(key).add(val);
+				}
+			}
+		}
 	}
 	
 	/*Yuan comment out

@@ -12,24 +12,35 @@ log_id = 1
 req_file_id = 1
 resp_file_id = 1
 
-log_dir = "."
+log_dir = "/home/soh/trace/Batman/JsForum/log_{0}".format(log_id)
 html_dir = "{0}/html".format(log_dir)
 req_file = None
 
 portal_addr = "http://localhost:8080/portal"
 
+role = 0
+user_id = "scanner1"
+
 def start(context, argv):
     """
         Called once on script startup, before any other events.
     """
-    global req_file
-    req_file_name = "{0}/{1}-requestFile".format(log_dir, log_id)
-    req_file = open(req_file_name, 'w')
+    global req_file, role, user_id
     try:
+        os.makedirs(log_dir)
         os.makedirs(html_dir)
     except OSError as exception:
         if exception.errno != errno.EEXIST:
             raise
+    req_file_name = "{0}/{1}-requestFile".format(log_dir, log_id)
+    req_file = open(req_file_name, 'w')
+
+    # sends HTTP_SESSION index to Portal
+    index = "{0} {1}".format(role, user_id)
+    get_req = "{0}?type=HTTP_SESSION&index={1}".format(portal_addr, index)
+    r = requests.get(get_req)
+    if r.status_code < 200 or r.status_code >= 300:
+        print "Sending an index to Portal failed."
 
 def request(context, flow):
     """
@@ -49,9 +60,9 @@ def request(context, flow):
     req_entry = "[{0}][{1}][{2}]".format(index, method, url)
     if method == 'POST':
         post_params = flow.request.content.split("&")
-        for post_param in post_params:
-            param_name = post_param.split("=")[0]
-            req_entry += "[{0}]".format(param_name)
+        if post_params:
+            post_params_str = "&".join(post_params)
+            req_entry += "[{0}]".format(post_params_str)
     req_entry += "\n"
 
     req_file.write(req_entry)

@@ -26,7 +26,7 @@
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 local tokenizer = require("proxy.tokenizer")
-local sql_index = 1
+sql_index = 1
 local portal_addr = "http://localhost:8080/portal/"
 
 ---
@@ -75,6 +75,9 @@ function send_response( inj, index )
 
     local post_type = "type=SQL_RESPONSE"
     local post_index = "index=" .. index
+    local row_delimiter = "##"
+    local field_delimiter = "$$"
+    local assign_delimiter = "^^"
     local packet = inj.query
     local query = packet:sub(2)
     local res = inj.resultset
@@ -82,18 +85,43 @@ function send_response( inj, index )
     local token = tokens[1]
     local resp_type = token.token_name
     local post_content = ""
+    local vars = ""
     if resp_type == "TK_SQL_SELECT" then
-        post_content = "content=[response][" .. index .. "][select][" .. query .. "]\n"
+        post_content = "content=[response][" .. index .. "][select]["
+        if res.query_status == proxy.MYSQLD_PACKET_ERR then
+            post_content = post_content .. "FAILURE"
+        else
+            post_content = post_content .. "SUCCESS"
+        end
+        if res.rows ~= nil then
+            local fn = 1
+            local fields = res.fields
+            while fields[fn] do
+                fn = fn + 1
+            end
+            fn = fn - 1
+            for row in res.rows do
+                vars = vars .. row_delimiter
+                for i = 1, fn do
+                    if i > 1 then
+                        vars = vars .. field_delimiter
+                    end
+                    vars = vars .. fields[i].name .. assign_delimiter .. row[i]
+                end
+                vars = vars .. row_delimiter
+            end
+        end
+        post_content = post_content .. vars .. "]\n"
     else
         local query_status = "STATUS_OK"
         if res.query_status == proxy.MYSQLD_PACKET_ERR then
             query_status = "STATUS_ERR"
         end
-        local row_count = 0
-        for row in res.rows do
-            row_count = row_count + 1
+        local num_rows = 0
+        if res.rows ~= nil then
+            num_rows = #res.rows
         end
-        post_content = "content=[response][" .. index .. "][nselect][" .. query_status .. "][" .. tostring(row_count) .. "]\n"
+        post_content = "content=[response][" .. index .. "][nselect][" .. query_status .. "][" .. tostring(num_rows) .. "]\n"
     end
     local post_str = post_type .. "&" .. post_index .. "&" .. post_content
     doPost(post_str)
@@ -123,7 +151,6 @@ function read_query( packet )
                 token_name == "TK_SQL_UPDATE" or
                 token_name == "TK_SQL_DELETE" then
 
-		        print("we got a normal query: " .. string.sub(packet, 2))
                 send_query(packet)
 		        proxy.queries:append(sql_index, packet, { resultset_is_needed = true } )
                 sql_index = sql_index + 1
@@ -148,12 +175,5 @@ end
 --   * proxy.PROXY_IGNORE_RESULT to drop the result-set
 -- 
 function read_query_result(inj)
-	print("injected result-set: id = " .. inj.id)
-
     send_response(inj, inj.id)
-    for row in inj.resultset.rows do
-        if row[1] ~= nil then
-            print("injected query returned: " .. row[1])
-        end
-    end
 end
