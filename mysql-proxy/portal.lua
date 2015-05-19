@@ -26,8 +26,23 @@
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 local tokenizer = require("proxy.tokenizer")
-sql_index = 1
+local sql_index = 1
 local portal_addr = "http://localhost:8080/portal/"
+
+---
+-- Encodes data for HTTP transport
+--
+-- @str data to be encoded
+--
+function urlencode(str)
+   if (str) then
+      str = string.gsub (str, "\n", "\r\n")
+      str = string.gsub (str, "([^%w ])",
+         function (c) return string.format ("%%%02X", string.byte(c)) end)
+      str = string.gsub (str, " ", "+")
+   end
+   return str    
+end
 
 ---
 -- Sends HTTP GET request
@@ -35,6 +50,7 @@ local portal_addr = "http://localhost:8080/portal/"
 -- @param addr HTTP url to send GET request to
 --
 function doGet(addr)
+    print("GET url: " .. addr)
     http.request{url = addr}
 end
 
@@ -44,6 +60,7 @@ end
 -- @param post_data HTTP POST body
 --
 function doPost(post_data)
+    print("POST url: " .. portal_addr .. " data: " .. post_data .. "\n")
     http.request(portal_addr, post_data)
 end
 
@@ -58,8 +75,8 @@ function send_query( packet )
 
     local post_type = "type=SQL_QUERY"
     local post_index = "index=" .. sql_index
-    local post_content = "content=[query][" .. sql_index .. "][" .. packet:sub(2) .. "]\n"
-    local post_str = post_type .. "&" .. post_index .. "&" .. post_content
+    local post_content = "[query][" .. sql_index .. "][" .. packet:sub(2) .. "]\n"
+    local post_str = post_type .. "&" .. post_index .. "&content=" .. urlencode(post_content)
     doPost(post_str)
 end
 
@@ -87,7 +104,7 @@ function send_response( inj, index )
     local post_content = ""
     local vars = ""
     if resp_type == "TK_SQL_SELECT" then
-        post_content = "content=[response][" .. index .. "][select]["
+        post_content = "[response][" .. index .. "][select]["
         if res.query_status == proxy.MYSQLD_PACKET_ERR then
             post_content = post_content .. "FAILURE"
         else
@@ -121,9 +138,9 @@ function send_response( inj, index )
         if res.rows ~= nil then
             num_rows = #res.rows
         end
-        post_content = "content=[response][" .. index .. "][nselect][" .. query_status .. "][" .. tostring(num_rows) .. "]\n"
+        post_content = "[response][" .. index .. "][nselect][" .. query_status .. "][" .. tostring(num_rows) .. "]\n"
     end
-    local post_str = post_type .. "&" .. post_index .. "&" .. post_content
+    local post_str = post_type .. "&" .. post_index .. "&content=" .. urlencode(post_content)
     doPost(post_str)
 end
 

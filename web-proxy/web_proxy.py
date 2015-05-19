@@ -8,7 +8,7 @@ import requests
 import os
 import sys
 
-log_id = 1
+log_id = 3
 req_file_id = 1
 resp_file_id = 1
 
@@ -18,8 +18,8 @@ req_file = None
 
 portal_addr = "http://localhost:8080/portal"
 
-role = 0
-user_id = "scanner1"
+role = 1
+user_id = "admin"
 
 def start(context, argv):
     """
@@ -33,7 +33,7 @@ def start(context, argv):
         if exception.errno != errno.EEXIST:
             raise
     req_file_name = "{0}/{1}-requestFile".format(log_dir, log_id)
-    req_file = open(req_file_name, 'w')
+    req_file = open(req_file_name, 'a')
 
     # sends HTTP_SESSION index to Portal
     index = "{0} {1}".format(role, user_id)
@@ -59,10 +59,13 @@ def request(context, flow):
     url = flow.request.url
     req_entry = "[{0}][{1}][{2}]".format(index, method, url)
     if method == 'POST':
-        post_params = flow.request.content.split("&")
-        if post_params:
-            post_params_str = "&".join(post_params)
-            req_entry += "[{0}]".format(post_params_str)
+        encoding_format = flow.request.headers['Content-Type']
+        if 'application/x-www-form-urlencoded' in encoding_format:
+            # ignore file uploads using multipart format
+            post_params = flow.request.content.split("&")
+            if post_params:
+                post_params_str = "&".join(post_params)
+                req_entry += "[{0}]".format(post_params_str)
     req_entry += "\n"
 
     req_file.write(req_entry)
@@ -83,7 +86,7 @@ def response(context, flow):
         print "Sending an index to Portal failed."
 
     html_file_name = "{0}/{1}.html".format(html_dir, resp_file_id)
-    with open(html_file_name, "w") as html_file:
+    with open(html_file_name, "a") as html_file:
         page = flow.response.get_decoded_content()
         html_file.write(page)
         resp_file_id += 1

@@ -1,9 +1,9 @@
 package edu.vanderbilt.batman;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.net.URLDecoder;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -107,16 +107,42 @@ public class Portal extends HttpServlet {
 		 	bw.close();
 		}
 	}
+
+	protected Map<String, String> decodeParameters(String queryStr) {
+		String decoded = null;
+		Map<String, String> parameters = new HashMap<>();
+		try {
+			decoded = URLDecoder.decode(queryStr, "UTF-8");
+			String[] params = decoded.split("&");
+
+			for (String param : params) {
+				String[] kv = param.split("=");
+				parameters.put(kv[0], kv[1]);
+			}
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+
+		return parameters;
+	}
 	
 	/**
 	 * Used for receiving REAL DATA (HTTP/SQL REQUEST/RESPONSE) from both WebScarab proxy and Mysql proxy. Now only for mysql proxy.
 	 * @see javax.servlet.http.HttpServlet#doPost(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
 	 */
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		
+
 		String dataType = request.getParameter("type");
 		String dataIndex = request.getParameter("index");
 		String data = request.getParameter("content");
+/*		try {
+			data = URLDecoder.decode(data, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}*/
+
 		
 		if (mode == MODE_LOGGING) {
 			if (dataType != null && (dataType.equals("SQL_QUERY") || dataType.equals("SQL_RESPONSE")) && data != null) {
@@ -138,6 +164,8 @@ public class Portal extends HttpServlet {
 				}
 				bw.close();
 				bw1.close();
+			} else {
+				System.err.println("ERROR!");
 			}
 		}
 		
