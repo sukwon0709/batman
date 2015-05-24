@@ -1,50 +1,45 @@
 package edu.vanderbilt.batman;
 
-import java.io.*;
-import java.net.URLDecoder;
-import java.util.HashMap;
-import java.util.Map;
+import edu.vanderbilt.batman.testing.TestingEngine;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import edu.vanderbilt.batman.testing.TestingEngine;
+import java.io.*;
+import java.net.URLDecoder;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Servlet implementation class Portal
  */
 public class Portal extends HttpServlet {
 	private static final long serialVersionUID = 1L;
-	
-	private TestingEngine _engine = null;
-	
 	public static int MODE_LOGGING = 0;
 	public static int MODE_TESTING = 1;
 	public static int MODE_DEBUGING = 2;
 
-	public static final int mode = MODE_LOGGING;
-	//public static final int mode = MODE_TESTING;
-	//public static final int mode = MODE_DEBUGING;
-	
+	//public static final int mode = MODE_LOGGING;
+	public static final int mode = MODE_TESTING;
+
 	// Configurations::
 	// local storage.
 	public static String working_dir = "/home/soh/trace/Batman/";
+	//public static final int mode = MODE_DEBUGING;
 	//public static String project = "scarf";
 	//public static String project = "securephoto";
 	//public static String project = "events";
 	//public static String project = "bloggit";
 	//public static String project = "minibloggie";
-	public static String project = "JsForum";
+	public static String project = "wackopicko";
+    public static String web_server = "192.168.56.101";
 	//public static String project = "jspblog";
-	
-    //public static String web_server = "129.59.89.23";
-	public static String web_server = "129.59.89.23:8080";  // for jsp apps
-	
 	public static String trace_dir = working_dir + project + "/";
+	//public static String web_server = "129.59.89.23:8080";  // for jsp apps
 	private static String log_file = trace_dir + project + ".log";
 	private static String sql_log_file = trace_dir + project + "_sql_log";
+	private TestingEngine _engine = null;
 	
 	/**
      * @see HttpServlet#HttpServlet()

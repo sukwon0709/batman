@@ -30,7 +30,7 @@ class ConstraintAnalyzer {
 		//String project = "events";
 	    //String project = "bloggit";
 		//String project = "minibloggie";
-	    String project = "JsForum";
+	    String project = "wackopicko";
 		//String project = "jspblog";
 		
 		try {

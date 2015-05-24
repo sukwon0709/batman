@@ -25,6 +25,7 @@ public class RequestGenerator {
 	}
 	
 	public Request constructBaseRequest(String app) throws MalformedURLException {
+		app = "";
 		Request request = new Request();
 		request.setMethod("GET");
 		request.setVersion(http_version);
@@ -36,6 +37,7 @@ public class RequestGenerator {
 	
 	// construct redirection requests.
 	public Request constructRedirectRequest(String app, String header, String cookie) throws MalformedURLException {
+		app = "";
 		Request request = new Request();
 		request.setMethod("GET");
 		request.setVersion(http_version);

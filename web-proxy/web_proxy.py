@@ -8,18 +8,18 @@ import requests
 import os
 import sys
 
-log_id = 3
+log_id = 2
 req_file_id = 1
 resp_file_id = 1
 
-log_dir = "/home/soh/trace/Batman/JsForum/log_{0}".format(log_id)
+log_dir = "/home/soh/trace/Batman/wackopicko/log_{0}".format(log_id)
 html_dir = "{0}/html".format(log_dir)
 req_file = None
 
 portal_addr = "http://localhost:8080/portal"
 
 role = 1
-user_id = "admin"
+user_id = "scanner2"
 
 def start(context, argv):
     """
